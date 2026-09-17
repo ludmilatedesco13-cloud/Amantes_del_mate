@@ -147,6 +147,90 @@ async function agregarNuevaSubcategoria() {
     }
 }
 
+async function eliminarCategoriaSeleccionada() {
+        const nombre = document.getElementById('categoria').value;
+        if (!nombre) return showError('Primero seleccioná una categoría.');
+
+        const confirmacion = await Swal.fire({
+            title: '¿Eliminar categoría?',
+            text: `Se eliminará "${nombre}". Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#A95C42',
+            cancelButtonColor: '#6B7B45',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        });
+        if (!confirmacion.isConfirmed) return;
+
+        try {
+            const categoria = await supabaseClient.from('categorias').select('id').eq('nombre', nombre).single();
+            if (categoria.error) throw categoria.error;
+
+            const subcategorias = await supabaseClient.from('subcategorias').select('id').eq('categoria_id', categoria.data.id);
+            if (subcategorias.error) throw subcategorias.error;
+            if (subcategorias.data.length) {
+                return showError('No se puede eliminar: primero eliminá sus subcategorías.');
+            }
+
+            const productosUsando = await supabaseClient.from('productos').select('id').eq('categoria', nombre).limit(1);
+            if (productosUsando.error) throw productosUsando.error;
+            if (productosUsando.data.length) {
+                return showError('No se puede eliminar: la categoría está siendo usada por un producto.');
+            }
+
+            const resultado = await supabaseClient.from('categorias').delete().eq('id', categoria.data.id);
+            if (resultado.error) throw resultado.error;
+            await cargarCategoriasYSubcategorias();
+            document.getElementById('categoria').value = '';
+            actualizarSubcategorias();
+            showSuccess('¡Categoría eliminada!', 'La categoría fue eliminada correctamente.');
+        } catch (error) {
+            showError('No se pudo eliminar la categoría: ' + error.message);
+        }
+    }
+
+async function eliminarSubcategoriaSeleccionada() {
+        const categoriaNombre = document.getElementById('categoria').value;
+        const nombre = document.getElementById('subcategoria').value;
+        if (!categoriaNombre || !nombre) return showError('Seleccioná una categoría y una subcategoría.');
+
+        const confirmacion = await Swal.fire({
+            title: '¿Eliminar subcategoría?',
+            text: `Se eliminará "${nombre}". Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#A95C42',
+            cancelButtonColor: '#6B7B45',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        });
+        if (!confirmacion.isConfirmed) return;
+
+        try {
+            const categoria = await supabaseClient.from('categorias').select('id').eq('nombre', categoriaNombre).single();
+            if (categoria.error) throw categoria.error;
+            const subcategoria = await supabaseClient.from('subcategorias').select('id').eq('categoria_id', categoria.data.id).eq('nombre', nombre).single();
+            if (subcategoria.error) throw subcategoria.error;
+
+            const productosUsando = await supabaseClient.from('productos').select('id').eq('categoria', categoriaNombre).eq('subcategoria', nombre).limit(1);
+            if (productosUsando.error) throw productosUsando.error;
+            if (productosUsando.data.length) {
+                return showError('No se puede eliminar: la subcategoría está siendo usada por un producto.');
+            }
+
+            const resultado = await supabaseClient.from('subcategorias').delete().eq('id', subcategoria.data.id);
+            if (resultado.error) throw resultado.error;
+            await cargarCategoriasYSubcategorias();
+            document.getElementById('categoria').value = categoriaNombre;
+            actualizarSubcategorias();
+            showSuccess('¡Subcategoría eliminada!', 'La subcategoría fue eliminada correctamente.');
+        } catch (error) {
+            showError('No se pudo eliminar la subcategoría: ' + error.message);
+        }
+    }
 // --- RESTO DE LAS FUNCIONES DEL SISTEMA ---
 
 function aplicarRol() { 
@@ -417,6 +501,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Listeners para los nuevos botones de agregar dinámicamente
     document.getElementById('btn-nueva-categoria').addEventListener('click', agregarNuevaCategoria);
     document.getElementById('btn-nueva-subcategoria').addEventListener('click', agregarNuevaSubcategoria);
+    document.getElementById('btn-eliminar-categoria').addEventListener('click', eliminarCategoriaSeleccionada);
+    document.getElementById('btn-eliminar-subcategoria').addEventListener('click', eliminarSubcategoriaSeleccionada);
 
     document.getElementById('btn-agregar-item').addEventListener('click', agregarAlCarrito); 
     document.getElementById('producto_buscar').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); agregarAlCarrito(); } }); 
