@@ -29,6 +29,9 @@
         .btn-add-dynamic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
         .btn-add-dynamic:hover { background: #556B2F; }
         .btn-add-dynamic:focus-visible { outline: 3px solid rgba(107,123,69,.25); outline-offset: 2px; }
+        .btn-delete-dynamic { background: #F7E9E4; color: #A95C42; border: none; border-radius: 8px; width: 45px; height: 45px; flex: 0 0 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s, transform 0.2s; }
+        .btn-delete-dynamic:hover { background: #F1D8D0; transform: translateY(-1px); }
+        .btn-delete-dynamic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     </style>
 </head>
 <body>
@@ -105,6 +108,9 @@
                         <button type="button" id="btn-nueva-categoria" class="btn-add-dynamic" title="Agregar Categoría" aria-label="Agregar Categoría">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                         </button>
+                        <button type="button" id="btn-eliminar-categoria" class="btn-delete-dynamic" title="Eliminar Categoría" aria-label="Eliminar Categoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+                        </button>
                     </div>
                 </div>
                 <div class="form-group">
@@ -115,6 +121,9 @@
                         </select>
                         <button type="button" id="btn-nueva-subcategoria" class="btn-add-dynamic" title="Agregar Subcategoría" aria-label="Agregar Subcategoría">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                        </button>
+                        <button type="button" id="btn-eliminar-subcategoria" class="btn-delete-dynamic" title="Eliminar Subcategoría" aria-label="Eliminar Subcategoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
                         </button>
                     </div>
                 </div>
