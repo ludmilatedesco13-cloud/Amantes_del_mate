@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Producto - Amantes del Mate</title>
+    <link rel="stylesheet" href="css/estilos.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { min-height: 100vh; padding: 30px 0 60px; }
+        .edit-container { max-width: 850px; margin: 0 auto; padding: 0 25px; }
+        .edit-header { display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        .edit-header h1 { color: #4E3629; font-size: 1.8rem; }
+        .back-link { color: #4E3629; font-weight: 600; text-decoration: none; background: #EFECE6; padding: 8px 15px; border-radius: 10px; }
+        .category-control { display: flex; gap: 8px; align-items: center; }
+        .category-select { flex: 1; min-width: 0; appearance: none; padding-right: 42px !important; background-image: linear-gradient(45deg, transparent 50%, #6B7B45 50%), linear-gradient(135deg, #6B7B45 50%, transparent 50%); background-position: calc(100% - 19px) 50%, calc(100% - 13px) 50%; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; }
+        .btn-add-dynamic { background: #6B7B45; color: #fff; border: none; border-radius: 8px; width: 45px; height: 45px; flex: 0 0 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .btn-add-dynamic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+        .btn-add-dynamic:hover { background: #556B2F; }
+        .current-image { display: none; max-width: 180px; max-height: 180px; object-fit: cover; border-radius: 10px; margin-top: 10px; border: 1px solid #DCD6CD; }
+        .image-help { color: #8C7A70; font-size: .82rem; margin-top: 5px; }
+        @media (max-width: 600px) {
+            .edit-container { padding: 0 15px; }
+            .edit-header h1 { font-size: 1.45rem; }
+        }
+    </style>
+</head>
+<body style="background-color:#F7F5F0;">
+<main class="edit-container">
+    <div class="edit-header">
+        <h1>Editar Producto ✏️</h1>
+        <a class="back-link" href="panel.html#sec-inventario">← Volver al Inventario</a>
+    </div>
+
+    <section class="card">
+        <form id="form-editar-producto">
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label for="nombre">Nombre del Producto</label>
+                    <input type="text" id="nombre" required>
+                </div>
+                <div class="form-group">
+                    <label for="marca">Marca (Opcional)</label>
+                    <input type="text" id="marca">
+                </div>
+            </div>
+
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label for="categoria">Categoría</label>
+                    <div class="category-control">
+                        <select id="categoria" class="category-select" required>
+                            <option value="">-- Seleccionar Categoría --</option>
+                        </select>
+                        <button type="button" id="btn-nueva-categoria" class="btn-add-dynamic" title="Agregar Categoría" aria-label="Agregar Categoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="subcategoria">Subcategoría</label>
+                    <div class="category-control">
+                        <select id="subcategoria" class="category-select" required>
+                            <option value="">-- Seleccionar Subcategoría --</option>
+                        </select>
+                        <button type="button" id="btn-nueva-subcategoria" class="btn-add-dynamic" title="Agregar Subcategoría" aria-label="Agregar Subcategoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group-row">
+                <div class="form-group">
+                    <label for="precio_costo">Precio Costo ($)</label>
+                    <input type="text" inputmode="decimal" id="precio_costo" required>
+                </div>
+                <div class="form-group">
+                    <label for="precio_venta">Precio Venta ($)</label>
+                    <input type="text" inputmode="decimal" id="precio_venta" required>
+                </div>
+                <div class="form-group">
+                    <label for="stock">Stock</label>
+                    <input type="number" min="0" id="stock" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="caracteristicas">Descripción / Detalles</label>
+                <textarea id="caracteristicas" rows="3"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="foto">Nueva Foto (opcional)</label>
+                <input type="file" id="foto" accept="image/jpeg,image/png,image/webp" style="border:none;padding:5px 0;">
+                <p class="image-help">Si no seleccionás una imagen, se conserva la actual.</p>
+                <img id="vista-previa-foto" class="current-image" alt="Vista previa de la foto del producto">
+            </div>
+
+            <button type="submit" class="btn-submit">Guardar Cambios</button>
+        </form>
+    </section>
+</main>
+
+<script src="js/supabase-config.js"></script>
+<script>
+    const productId = new URLSearchParams(window.location.search).get('id');
+    let productoActual;
+    let subcategoriasPorCategoria = {};
+
+    const parsePrice = value => {
+        const text = String(value ?? '').trim().replace(/\s/g, '');
+        if (!text) return NaN;
+        if (text.includes(',')) return Number(text.replace(/\./g, '').replace(',', '.'));
+        const parts = text.split('.');
+        return parts.length > 1 && parts.at(-1).length === 3 ? Number(parts.join('')) : Number(text);
+    };
+
+    const showError = message => Swal.fire({ icon: 'error', title: 'Atención', text: message, confirmButtonColor: '#6B7B45' });
+    const showSuccess = (title, text) => Swal.fire({ icon: 'success', title, text, confirmButtonColor: '#6B7B45' });
+
+    function actualizarSubcategorias(selectedValue = '') {
+        const select = document.getElementById('subcategoria');
+        select.innerHTML = '<option value="">-- Seleccionar Subcategoría --</option>';
+        (subcategoriasPorCategoria[document.getElementById('categoria').value] || []).forEach(nombre => {
+            select.add(new Option(nombre, nombre));
+        });
+        select.value = selectedValue;
+    }
+
+    async function cargarClasificaciones() {
+        const [categorias, subcategorias] = await Promise.all([
+            supabaseClient.from('categorias').select('*').order('nombre'),
+            supabaseClient.from('subcategorias').select('*').order('nombre')
+        ]);
+        if (categorias.error) throw categorias.error;
+        if (subcategorias.error) throw subcategorias.error;
+
+        const select = document.getElementById('categoria');
+        subcategoriasPorCategoria = {};
+        select.innerHTML = '<option value="">-- Seleccionar Categoría --</option>';
+        (categorias.data || []).forEach(categoria => {
+            select.add(new Option(categoria.nombre, categoria.nombre));
+            subcategoriasPorCategoria[categoria.nombre] = [];
+        });
+        (subcategorias.data || []).forEach(subcategoria => {
+            const categoria = (categorias.data || []).find(item => item.id === subcategoria.categoria_id)?.nombre || subcategoria.categoria_nombre;
+            if (categoria && subcategoriasPorCategoria[categoria]) subcategoriasPorCategoria[categoria].push(subcategoria.nombre);
+        });
+        select.value = productoActual.categoria || '';
+        actualizarSubcategorias(productoActual.subcategoria || '');
+    }
+
+    async function agregarCategoria() {
+        const { value } = await Swal.fire({ title: 'Nueva Categoría', input: 'text', inputPlaceholder: 'Nombre de la categoría...', showCancelButton: true, confirmButtonColor: '#6B7B45', cancelButtonColor: '#A95C42', confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar', inputValidator: value => !value.trim() ? 'Escribí un nombre.' : undefined });
+        if (!value) return;
+        const nombre = value.trim();
+        const { error } = await supabaseClient.from('categorias').insert({ nombre });
+        if (error) return showError('No se pudo guardar la categoría: ' + error.message);
+        await cargarClasificaciones();
+        document.getElementById('categoria').value = nombre;
+        actualizarSubcategorias();
+    }
+
+    async function agregarSubcategoria() {
+        const categoria = document.getElementById('categoria').value;
+        if (!categoria) return showError('Primero seleccioná una categoría.');
+        const { value } = await Swal.fire({ title: 'Nueva Subcategoría', input: 'text', inputPlaceholder: 'Nombre de la subcategoría...', showCancelButton: true, confirmButtonColor: '#6B7B45', cancelButtonColor: '#A95C42', confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar', inputValidator: value => !value.trim() ? 'Escribí un nombre.' : undefined });
+        if (!value) return;
+        const categoriaResult = await supabaseClient.from('categorias').select('id').eq('nombre', categoria).single();
+        if (categoriaResult.error) return showError('No se pudo encontrar la categoría: ' + categoriaResult.error.message);
+        const { error } = await supabaseClient.from('subcategorias').insert({ categoria_id: categoriaResult.data.id, nombre: value.trim() });
+        if (error) return showError('No se pudo guardar la subcategoría: ' + error.message);
+        await cargarClasificaciones();
+        document.getElementById('categoria').value = categoria;
+        actualizarSubcategorias(value.trim());
+    }
+
+    async function uploadImage(file) {
+        if (!file) return null;
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('La imagen debe ser JPG, PNG o WEBP y pesar hasta 5 MB.');
+        const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '-')}`;
+        const upload = await supabaseClient.storage.from('img').upload(path, file, { upsert: false, contentType: file.type });
+        if (upload.error) throw upload.error;
+        return supabaseClient.storage.from('img').getPublicUrl(path).data.publicUrl;
+    }
+
+    function cargarFormulario() {
+        document.getElementById('nombre').value = productoActual.nombre || '';
+        document.getElementById('marca').value = productoActual.marca || '';
+        document.getElementById('precio_costo').value = productoActual.precio_costo ?? '';
+        document.getElementById('precio_venta').value = productoActual.precio_venta ?? '';
+        document.getElementById('stock').value = productoActual.stock ?? '';
+        document.getElementById('caracteristicas').value = productoActual.caracteristicas || '';
+        const foto = productoActual.foto_url || productoActual.foto;
+        if (foto) {
+            const preview = document.getElementById('vista-previa-foto');
+            preview.src = /^https?:\/\//i.test(foto) ? foto : foto.replace(/^\.?\//, '');
+            preview.style.display = 'block';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        if (!localStorage.getItem('usuario')) return window.location.replace('login.html');
+        if (!productId) return showError('No se indicó qué producto editar.');
+        try {
+            const result = await supabaseClient.from('productos').select('*').eq('id', productId).single();
+            if (result.error) throw result.error;
+            productoActual = result.data;
+            cargarFormulario();
+            await cargarClasificaciones();
+        } catch (error) {
+            showError('No se pudo cargar el producto: ' + error.message);
+        }
+
+        document.getElementById('categoria').addEventListener('change', () => actualizarSubcategorias());
+        document.getElementById('btn-nueva-categoria').addEventListener('click', agregarCategoria);
+        document.getElementById('btn-nueva-subcategoria').addEventListener('click', agregarSubcategoria);
+        document.getElementById('foto').addEventListener('change', event => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const preview = document.getElementById('vista-previa-foto');
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = 'block';
+        });
+        document.getElementById('form-editar-producto').addEventListener('submit', async event => {
+            event.preventDefault();
+            try {
+                const precioCosto = parsePrice(document.getElementById('precio_costo').value);
+                const precioVenta = parsePrice(document.getElementById('precio_venta').value);
+                const stock = Number(document.getElementById('stock').value);
+                if (!document.getElementById('nombre').value.trim() || !Number.isFinite(precioCosto) || precioCosto <= 0 || !Number.isFinite(precioVenta) || precioVenta <= 0 || !Number.isInteger(stock) || stock < 0) {
+                    throw new Error('Completá los datos obligatorios con valores válidos.');
+                }
+                const newPhoto = await uploadImage(document.getElementById('foto').files[0]);
+                const updateData = {
+                    nombre: document.getElementById('nombre').value.trim(),
+                    marca: document.getElementById('marca').value.trim(),
+                    categoria: document.getElementById('categoria').value,
+                    subcategoria: document.getElementById('subcategoria').value,
+                    precio_costo: precioCosto,
+                    precio_venta: precioVenta,
+                    stock,
+                    caracteristicas: document.getElementById('caracteristicas').value.trim()
+                };
+                if (newPhoto) updateData.foto_url = newPhoto;
+                const result = await supabaseClient.from('productos').update(updateData).eq('id', productId);
+                if (result.error) throw result.error;
+                await showSuccess('¡Producto actualizado!', 'Los cambios se guardaron correctamente.');
+                window.location.href = 'panel.html#sec-inventario';
+            } catch (error) {
+                showError('No se pudo actualizar el producto: ' + error.message);
+            }
+        });
+    });
+</script>
+</body>
+</html>
