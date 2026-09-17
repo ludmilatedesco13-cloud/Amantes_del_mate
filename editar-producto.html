@@ -18,6 +18,9 @@
         .btn-add-dynamic { background: #6B7B45; color: #fff; border: none; border-radius: 8px; width: 45px; height: 45px; flex: 0 0 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .btn-add-dynamic svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
         .btn-add-dynamic:hover { background: #556B2F; }
+        .btn-delete-dynamic { background: #F7E9E4; color: #A95C42; border: none; border-radius: 8px; width: 45px; height: 45px; flex: 0 0 45px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .btn-delete-dynamic:hover { background: #F1D8D0; }
+        .btn-delete-dynamic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         .current-image { display: none; max-width: 180px; max-height: 180px; object-fit: cover; border-radius: 10px; margin-top: 10px; border: 1px solid #DCD6CD; }
         .image-help { color: #8C7A70; font-size: .82rem; margin-top: 5px; }
         @media (max-width: 600px) {
@@ -56,6 +59,9 @@
                         <button type="button" id="btn-nueva-categoria" class="btn-add-dynamic" title="Agregar Categoría" aria-label="Agregar Categoría">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
                         </button>
+                        <button type="button" id="btn-eliminar-categoria" class="btn-delete-dynamic" title="Eliminar Categoría" aria-label="Eliminar Categoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
+                        </button>
                     </div>
                 </div>
                 <div class="form-group">
@@ -66,6 +72,9 @@
                         </select>
                         <button type="button" id="btn-nueva-subcategoria" class="btn-add-dynamic" title="Agregar Subcategoría" aria-label="Agregar Subcategoría">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                        </button>
+                        <button type="button" id="btn-eliminar-subcategoria" class="btn-delete-dynamic" title="Eliminar Subcategoría" aria-label="Eliminar Subcategoría">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>
                         </button>
                     </div>
                 </div>
@@ -177,6 +186,55 @@
         actualizarSubcategorias(value.trim());
     }
 
+    async function eliminarClasificacion(tipo) {
+        const categoriaNombre = document.getElementById('categoria').value;
+        const subcategoriaNombre = document.getElementById('subcategoria').value;
+        const nombre = tipo === 'categoria' ? categoriaNombre : subcategoriaNombre;
+        if (!nombre || (tipo === 'subcategoria' && !categoriaNombre)) return showError('Seleccioná la clasificación que querés eliminar.');
+
+        const confirmacion = await Swal.fire({
+            title: `¿Eliminar ${tipo === 'categoria' ? 'categoría' : 'subcategoría'}?`,
+            text: `Se eliminará "${nombre}". Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#A95C42',
+            cancelButtonColor: '#6B7B45',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        });
+        if (!confirmacion.isConfirmed) return;
+
+        try {
+            const categoria = await supabaseClient.from('categorias').select('id').eq('nombre', categoriaNombre).single();
+            if (categoria.error) throw categoria.error;
+            if (tipo === 'categoria') {
+                const subcategorias = await supabaseClient.from('subcategorias').select('id').eq('categoria_id', categoria.data.id);
+                if (subcategorias.error) throw subcategorias.error;
+                if (subcategorias.data.length) return showError('No se puede eliminar: primero eliminá sus subcategorías.');
+            } else {
+                const subcategoria = await supabaseClient.from('subcategorias').select('id').eq('categoria_id', categoria.data.id).eq('nombre', subcategoriaNombre).single();
+                if (subcategoria.error) throw subcategoria.error;
+                const productos = await supabaseClient.from('productos').select('id').eq('categoria', categoriaNombre).eq('subcategoria', subcategoriaNombre).limit(1);
+                if (productos.error) throw productos.error;
+                if (productos.data.length) return showError('No se puede eliminar: la subcategoría está siendo usada por un producto.');
+                const resultado = await supabaseClient.from('subcategorias').delete().eq('id', subcategoria.data.id);
+                if (resultado.error) throw resultado.error;
+            }
+            if (tipo === 'categoria') {
+                const productos = await supabaseClient.from('productos').select('id').eq('categoria', categoriaNombre).limit(1);
+                if (productos.error) throw productos.error;
+                if (productos.data.length) return showError('No se puede eliminar: la categoría está siendo usada por un producto.');
+                const resultado = await supabaseClient.from('categorias').delete().eq('id', categoria.data.id);
+                if (resultado.error) throw resultado.error;
+            }
+            await cargarClasificaciones();
+            showSuccess('Eliminado', 'La clasificación fue eliminada correctamente.');
+        } catch (error) {
+            showError(`No se pudo eliminar: ${error.message}`);
+        }
+    }
+
     async function uploadImage(file) {
         if (!file) return null;
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) throw new Error('La imagen debe ser JPG, PNG o WEBP y pesar hasta 5 MB.');
@@ -217,6 +275,8 @@
         document.getElementById('categoria').addEventListener('change', () => actualizarSubcategorias());
         document.getElementById('btn-nueva-categoria').addEventListener('click', agregarCategoria);
         document.getElementById('btn-nueva-subcategoria').addEventListener('click', agregarSubcategoria);
+        document.getElementById('btn-eliminar-categoria').addEventListener('click', () => eliminarClasificacion('categoria'));
+        document.getElementById('btn-eliminar-subcategoria').addEventListener('click', () => eliminarClasificacion('subcategoria'));
         document.getElementById('foto').addEventListener('change', event => {
             const file = event.target.files[0];
             if (!file) return;
